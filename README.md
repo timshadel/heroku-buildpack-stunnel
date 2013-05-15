@@ -1,8 +1,11 @@
-Heroku buildpack: pgbouncer
+Heroku buildpack: stunnel
 =========================
 
-This is a [Heroku buildpack](http://devcenter.heroku.com/articles/buildpacks) that supplies pgbouncer and is meant to be used as a [multi-buildpack](https://github.com/ddollar/heroku-buildpack-multi) 
-It uses [stunnel](http://stunnel.org/).
+This is a [Heroku buildpack][buildpack] that supplies stunnel and is meant to be used as a [multi-buildpack][multi]. It uses [stunnel][stunnel].
+
+[buildpack]: http://devcenter.heroku.com/articles/buildpacks
+[multi]: https://github.com/ddollar/heroku-buildpack-multi
+[stunnel]: http://stunnel.org/
 
 Usage
 -----
@@ -15,39 +18,43 @@ Example usage:
     $ heroku config:add BUILDPACK_URL=https://github.com/ddollar/heroku-buildpack-multi.git
 
     $ cat .buildpacks
-    https://github.com/heroku/heroku-buildpack-pgbouncer.git
+    https://github.com/timshadel/heroku-buildpack-stunnel.git
     https://github.com/heroku/heroku-buildpack-nodejs.git
 
+    $ cat conf/stunnel.conf
+    // your stunnel config file
+
     $ cat Procfile
-    web: bin/pgbouncer-stunnel.sh && node web.js
+    web: node web.js
 
     $ git push heroku master
     ...
     -----> Heroku receiving push
     -----> Fetching custom buildpack
     -----> Multipack app detected
-    =====> Downloading Buildpack: https://github.com/heroku/heroku-buildpack-pgbouncer.git
-    =====> Detected Framework: pgbouncer
-           Using pgbouncer version: 1.5.4
+    =====> Downloading Buildpack: https://github.com/timshadel/heroku-buildpack-stunnel.git
+    =====> Detected Framework: stunnel
            Using stunnel version: 4.56
-    -----> Fetching and vendoring pgbouncer into slug
     -----> Fetching and vendoring stunnel into slug
-    -----> Generating the configuration generation script
     -----> Generating the startup script
-    -----> pgbouncer/stunnel done
+           stunnel will use config at /app/conf/stunnel.conf at boot
+    -----> stunnel done
     =====> Downloading Buildpack: https://github.com/heroku/heroku-buildpack-nodejs
     =====> Detected Framework: Node.js
     -----> Node.js app detected
-    -----> Vendoring node 0.4.7
-    -----> Installing dependencies with npm 1.0.8
-           express@2.1.0 ./node_modules/express
+    -----> Vendoring node 0.10.6
+    -----> Installing dependencies with npm 1.2.21
+           express@3.2.4 ./node_modules/express
            ├── mime@1.2.2
            ├── qs@0.3.1
            └── connect@1.6.2
            Dependencies installed
 
-The buildpack will install and configure pgbouncer and stunnel to connect to `DATABASE_URL` over a secure connection. Add `bin/pgbouncer-stunnel.sh && ` to any process in the Procfile to run pgbouncer and stunnel alongside that process.
+The buildpack will install and configure stunnel to start at dyno boot reading the config from `$HOME/conf/stunnnel.conf`.
 
-Use `PGBOUNCER_URI` as your database uri in your app and it will be generated on dyno boot. 
+If you don't want a startup file generated
+
+    heroku config:add STUNNEL_STARTUP_FILE=NO
+    heroku labs:enable user-env-compile
 
 For more info, see [CONTRIBUTING.md](CONTRIBUTING.md)
