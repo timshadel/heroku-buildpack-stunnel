@@ -1,11 +1,12 @@
 Heroku buildpack: stunnel
 =========================
 
-This is a [Heroku buildpack][buildpack] that supplies stunnel and is meant to be used as a [multi-buildpack][multi]. It uses [stunnel][stunnel].
+This is a [Heroku buildpack][buildpack] that supplies stunnel and is meant to be used as a [multi-buildpack][multi]. It uses [stunnel][stunnel], and was extracted from the [pgbouncer][pgbouncer] buildpack.
 
 [buildpack]: http://devcenter.heroku.com/articles/buildpacks
 [multi]: https://github.com/ddollar/heroku-buildpack-multi
 [stunnel]: http://stunnel.org/
+[pgbouncer]: https://github.com/gregburek/heroku-buildpack-pgbouncer
 
 Usage
 -----
