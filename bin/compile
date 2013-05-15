@@ -11,9 +11,7 @@ set -e
 unset GIT_DIR
 
 # config
-PGBOUNCER_VERSION="1.5.4"
 STUNNEL_VERSION="4.56"
-POSTGRESQL_VERSION="9.2.4"
 S3_BUCKET="gregburek-buildpack-pgbouncer"
 
 # parse and derive params
@@ -21,135 +19,42 @@ BUILD_DIR=$1
 CACHE_DIR=$2
 LP_DIR=`cd $(dirname $0); cd ..; pwd`
 
-function error() {
-  echo " !     $*" >&2
-  exit 1
-}
+# import package_download
+source $LP_DIR/support/package
 
-function indent() {
-  c='s/^/       /'
-  case $(uname) in
-    Darwin) sed -l "$c";;
-    *)      sed -u "$c";;
-  esac
-}
-
-function package_download() {
-  engine="$1"
-  version="$2"
-  location="$3"
-
-  mkdir -p $location
-  package="https://${S3_BUCKET}.s3.amazonaws.com/$engine-$version.tgz"
-  curl $package -s -o - | tar xzf - -C $location
-}
-
-echo "Using pgbouncer version: ${PGBOUNCER_VERSION}" | indent
 echo "Using stunnel version: ${STUNNEL_VERSION}" | indent
-echo "Using postgres version: ${POSTGRESQL_VERSION}" | indent
 
 # vendor directories
-VENDORED_PGBOUNCER="vendor/pgbouncer"
 VENDORED_STUNNEL="vendor/stunnel"
-VENDORED_POSTGRESQL="vendor/postgresql"
-
-# vendor pgbouncer into the slug
-PATH="$BUILD_DIR/$VENDORED_PGBOUNCER/bin:$PATH"
-echo "-----> Fetching and vendoring pgbouncer into slug"
-mkdir -p "$BUILD_DIR/$VENDORED_PGBOUNCER"
-package_download "pgbouncer" "${PGBOUNCER_VERSION}" "${BUILD_DIR}/${VENDORED_PGBOUNCER}"
 
 # vendor stunnel into the slug
 PATH="$BUILD_DIR/$VENDORED_STUNNEL/bin:$PATH"
 echo "-----> Fetching and vendoring stunnel into slug"
-mkdir -p "$BUILD_DIR/$VENDORED_STUNNEL"
+mkdir -p "$BUILD_DIR/$VENDORED_STUNNEL/var/run/stunnel/"
 package_download "stunnel" "${STUNNEL_VERSION}" "${BUILD_DIR}/${VENDORED_STUNNEL}"
 
-# vendor postgresql into the slug
-PATH="$BUILD_DIR/$VENDORED_POSTGRESQL/bin:$PATH"
-echo "-----> Fetching and vendoring postgresql into slug"
-mkdir -p "$BUILD_DIR/$VENDORED_POSTGRESQL"
-package_download "postgresql" "${POSTGRESQL_VERSION}" "${BUILD_DIR}/${VENDORED_POSTGRESQL}"
 
-echo "-----> Generating the configuration generation script"
-mkdir -p $BUILD_DIR/.profile.d
-cat >>$BUILD_DIR/.profile.d/libpq-env-vars.sh <<EOF
-export PATH="/app/$VENDORED_POSTGRESQL/bin:\$PATH"
-export CFLAGS="-I/app/$VENDORED_POSTGRESQL/include"
-export LDFLAGS="-L/app/$VENDORED_POSTGRESQL/lib -R/app/$VENDORED_POSTGRESQL/lib"
-export LD_LIBRARY_PATH="/app/$VENDORED_POSTGRESQL/lib:\$LD_LIBRARY_PATH"
-EOF
-chmod +x $BUILD_DIR/.profile.d/libpq-env-vars.sh
-
-cat >>$BUILD_DIR/.profile.d/gen-pgbouncer-conf.sh <<'EOF'
-#!/usr/bin/env bash
-
-DB=$(echo $DATABASE_URL | perl -lne 'print "$1 $2 $3 $4 $5 $6 $7" if /^postgres:\/\/([^:]+):([^@]+)@(.*?):(.*?)\/(.*?)(\\?.*)?$/')
-DB_URI=( $DB )
-USER=${DB_URI[0]}
-PASS=${DB_URI[1]}
-HOST=${DB_URI[2]}
-PORT=${DB_URI[3]}
-DBNAME=${DB_URI[4]}
-
-export PGBOUNCER_URI=postgres://$USER:$PASS@127.0.0.1:6000/$DBNAME
-
-mkdir -p /app/vendor/stunnel/var/run/stunnel/
-cat >> /app/vendor/stunnel/stunnel-pgbouncer.conf << EOFEOF
-foreground = yes
-
-options = NO_SSLv2
-options = SINGLE_ECDH_USE
-options = SINGLE_DH_USE
-socket = r:TCP_NODELAY=1
-options = NO_SSLv3
-ciphers = HIGH:!ADH:!AECDH:!LOW:!EXP:!MD5:!3DES:!SRP:!PSK:@STRENGTH
-
-[heroku-postgres]
-client=yes
-accept  = localhost:6002
-connect = $HOST:$PORT
-retry = yes
-
-EOFEOF
-
-cat >> /app/vendor/pgbouncer/pgbouncer.ini << EOFEOF
-[databases]
-heroku_postgres = host=localhost port=6002
-[pgbouncer]
-listen_addr = localhost
-listen_port = 6000
-auth_type = any
-
-; When server connection is released back to pool:
-;   session      - after client disconnects
-;   transaction  - after transaction finishes
-;   statement    - after statement finishes
-pool_mode = session
-server_reset_query = DISCARD ALL
-max_client_conn = 100
-default_pool_size = 20
-EOFEOF
-EOF
-chmod +x $BUILD_DIR/.profile.d/gen-pgbouncer-conf.sh
+STUNNEL_STARTUP_FILE=${STUNNEL_STARTUP_FILE:-YES}
+if [[ $STUNNEL_STARTUP_FILE != "YES" ]]; then
+  echo "-----> Skipping the startup script"
+  echo "-----> stunnel done"
+  exit 0
+fi
 
 echo "-----> Generating the startup script"
-cat >>$BUILD_DIR/bin/pgbouncer-stunnel.sh <<EOF
+mkdir -p "$BUILD_DIR/.profile.d"
+cat >>$BUILD_DIR/.profile.d/start-stunnel.sh <<'EOF'
 #!/usr/bin/env bash
-export OLD_DATABASE_URL=\$DATABASE_URL
-export DATABASE_URL=\$PGBOUNCER_URI
-if [ `/sbin/ifconfig -a | grep -c 172\.[123][0-9]\.` -gt "0" ]; then
-  $VENDORED_STUNNEL/bin/stunnel $VENDORED_STUNNEL/stunnel-pgbouncer.conf &
-  $VENDORED_PGBOUNCER/bin/pgbouncer $VENDORED_PGBOUNCER/pgbouncer.ini &
+
+echo "at=info service=stunnel action=start config=$HOME/conf/stunnel.conf"
+$HOME/vendor/stunnel/bin/stunnel $HOME/conf/stunnel.conf &
+EOF
+
+if [ -f $BUILD_DIR/conf/stunnel.conf ]; then
+  echo "       stunnel will use config at /app/conf/stunnel.conf at boot"
 else
-  echo "This dyno does not have containerized networking. Crashing...."
+  echo "!      Couldn't find $BUILD_DIR/conf/stunnel.conf. Failing build."
   exit 1
 fi
-EOF
-chmod +x $BUILD_DIR/bin/pgbouncer-stunnel.sh
 
-echo "-----> pgbouncer/stunnel done"
-export PATH="/app/$VENDORED_POSTGRESQL/bin:$PATH"
-export CFLAGS="-I/app/$VENDORED_POSTGRESQL/include"
-export LDFLAGS="-L/app/$VENDORED_POSTGRESQL/lib -R/app/$VENDORED_POSTGRESQL/lib"
-export LD_LIBRARY_PATH="/app/$VENDORED_POSTGRESQL/lib:$LD_LIBRARY_PATH"
+echo "-----> stunnel done"

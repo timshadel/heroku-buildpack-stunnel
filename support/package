@@ -1,0 +1,22 @@
+function error() {
+  echo " !     $*" >&2
+  exit 1
+}
+
+function indent() {
+  c='s/^/       /'
+  case $(uname) in
+    Darwin) sed -l "$c";;
+    *)      sed -u "$c";;
+  esac
+}
+
+function package_download() {
+  engine="$1"
+  version="$2"
+  location="$3"
+
+  mkdir -p $location
+  package="https://${S3_BUCKET}.s3.amazonaws.com/$engine-$version.tgz"
+  curl $package -s -o - | tar xzf - -C $location
+}
