@@ -53,8 +53,7 @@ EOF
 if [ -f $BUILD_DIR/conf/stunnel.conf ]; then
   echo "       stunnel will use config at /app/conf/stunnel.conf at boot"
 else
-  echo "!      Couldn't find $BUILD_DIR/conf/stunnel.conf. Failing build."
-  exit 1
+  echo "!      WARNING: Couldn't find $BUILD_DIR/conf/stunnel.conf."
 fi
 
 echo "-----> stunnel done"
