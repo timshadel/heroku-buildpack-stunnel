@@ -34,26 +34,8 @@ mkdir -p "$BUILD_DIR/$VENDORED_STUNNEL/var/run/stunnel/"
 package_download "stunnel" "${STUNNEL_VERSION}" "${BUILD_DIR}/${VENDORED_STUNNEL}"
 
 
-STUNNEL_STARTUP_FILE=${STUNNEL_STARTUP_FILE:-YES}
-if [[ $STUNNEL_STARTUP_FILE != "YES" ]]; then
-  echo "-----> Skipping the startup script"
-  echo "-----> stunnel done"
-  exit 0
-fi
-
-echo "-----> Generating the startup script"
-mkdir -p "$BUILD_DIR/.profile.d"
-cat >>$BUILD_DIR/.profile.d/start-stunnel.sh <<'EOF'
-#!/usr/bin/env bash
-
-echo "at=info service=stunnel action=start config=$HOME/conf/stunnel.conf"
-$HOME/vendor/stunnel/bin/stunnel $HOME/conf/stunnel.conf &
-EOF
-
-if [ -f $BUILD_DIR/conf/stunnel.conf ]; then
-  echo "       stunnel will use config at /app/conf/stunnel.conf at boot"
-else
-  echo "!      WARNING: Couldn't find $BUILD_DIR/conf/stunnel.conf."
-fi
-
+echo "-----> Skipping the startup script"
+echo "!      WARNING: This buildpack no longer generates a startup script."
+echo "!               The stunnel binary will be available at /app/vendor/stunnel/bin/stunnel."
+echo "!               Startup stunnel within your app using .profile or some other mechanism."
 echo "-----> stunnel done"
