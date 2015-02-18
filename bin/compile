@@ -27,6 +27,7 @@ LP_DIR=`cd $(dirname $0); cd ..; pwd`
 source $LP_DIR/support/package
 
 echo "Using stunnel version: ${STUNNEL_VERSION}" | indent
+echo "Using stack version: ${STACK}" | indent
 
 # vendor directories
 VENDORED_STUNNEL="vendor/stunnel"
@@ -35,7 +36,7 @@ VENDORED_STUNNEL="vendor/stunnel"
 PATH="$BUILD_DIR/$VENDORED_STUNNEL/bin:$PATH"
 echo "-----> Fetching and vendoring stunnel into slug"
 mkdir -p "$BUILD_DIR/$VENDORED_STUNNEL/var/run/stunnel/"
-package_download "stunnel" "${STUNNEL_VERSION}" "${BUILD_DIR}/${VENDORED_STUNNEL}"
+package_download "stunnel" "${STUNNEL_VERSION}" "${BUILD_DIR}/${VENDORED_STUNNEL}" "${STACK}"
 
 
 echo "-----> Skipping the startup script"
