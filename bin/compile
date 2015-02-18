@@ -11,7 +11,11 @@ set -e
 unset GIT_DIR
 
 # config
-STUNNEL_VERSION="4.56"
+if [ "$STACK" == "cedar-14" ]; then
+  STUNNEL_VERSION="5.08"
+else
+  STUNNEL_VERSION="5.02"
+fi
 S3_BUCKET="gregburek-buildpack-pgbouncer"
 
 # parse and derive params
